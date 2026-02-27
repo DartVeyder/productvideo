@@ -370,7 +370,12 @@
         slide.appendChild(wrapper);
 
         if (window.jQuery && window.jQuery(sliderEl).hasClass('slick-initialized')) {
-            window.jQuery(sliderEl).slick('slickAdd', slide, 0);
+            // Щоб уникнути дубльованого відео в самому слайдері
+            var existingSlides = window.jQuery(sliderEl).find('.product-page-video-wrapper');
+            if (existingSlides.length > 0) return;
+
+            var slideHtml = '<div>' + wrapper.outerHTML + '</div>';
+            window.jQuery(sliderEl).slick('slickAdd', slideHtml, 0, true);
             window.jQuery(sliderEl).slick('slickGoTo', 0, true);
         } else {
             var track = sliderEl.querySelector('.slick-track');
@@ -521,6 +526,70 @@
     document.addEventListener('DOMContentLoaded', function () {
         initCatalogVideos();
         initProductPageVideo();
+
+        // 1. Стандартний метод Prestashop 1.7+ (спрацьовує при зміні атрибутів)
+        if (typeof prestashop !== 'undefined') {
+            prestashop.on('updatedProduct', function () {
+                reinitVideo();
+            });
+        }
+
+        // 2. Fallback для кастомних тем (наприклад, Leo Theme), де updatedProduct може не працювати
+        if (typeof window.jQuery !== 'undefined') {
+            // Відслідковуємо всі AJAX-запити. Якщо це оновлення товару — перемальовуємо відео.
+            window.jQuery(document).on('ajaxComplete', function (event, xhr, settings) {
+                if (settings && settings.url && (settings.url.indexOf('Controller=product') > -1 || settings.url.indexOf('controller=product') > -1 || settings.url.indexOf('refresh') > -1)) {
+                    // Даємо трохи часу для застосування змін у DOM
+                    setTimeout(reinitVideo, 150);
+                }
+            });
+
+            // 3. Прямий клік по кнопках кольору чи розміру (як додаткова підстраховка)
+            window.jQuery(document).on('click', '.product-variants-item input, .product-variants-item select, .input-color', function () {
+                setTimeout(reinitVideo, 600); // Чекаємо, поки пройде ajax-запит
+            });
+        }
+
+        function reinitVideo() {
+            var slickSlider = document.querySelector('.list-images-mobile');
+            if (window.jQuery && slickSlider && window.jQuery(slickSlider).hasClass('slick-initialized')) {
+                // Видаляємо всі слайди з відео (через API slick)
+                var $slider = window.jQuery(slickSlider);
+                var slideIndicesToRemove = [];
+                $slider.find('.slick-slide').each(function (index, slide) {
+                    if (window.jQuery(slide).find('.product-page-video-wrapper').length > 0) {
+                        // slickRemove використовує індекс слайду (без урахування клонів)
+                        var dataSlickIndex = window.jQuery(slide).attr('data-slick-index');
+                        if (dataSlickIndex !== undefined && parseInt(dataSlickIndex) >= 0) {
+                            slideIndicesToRemove.push(parseInt(dataSlickIndex));
+                        }
+                    }
+                });
+
+                // Видаляємо з кінця, щоб не збились індекси
+                slideIndicesToRemove.sort(function (a, b) { return b - a });
+                slideIndicesToRemove.forEach(function (idx) {
+                    $slider.slick('slickRemove', idx);
+                });
+            }
+
+            var existingVideos = document.querySelectorAll('.product-page-video-wrapper');
+            existingVideos.forEach(function (el) {
+                // Видаляємо саму обгортку або її батьківський div (якщо це слайд, який ми створили)
+                var parent = el.parentNode;
+                if (parent) {
+                    parent.removeChild(el);
+                    // Якщо батьківський елемент порожній div (який ми створили для slick), видалимо і його
+                    if (parent.tagName === 'DIV' && parent.children.length === 0 && !parent.classList.contains('images-container') && !parent.classList.contains('product-cover')) {
+                        if (parent.parentNode) {
+                            parent.parentNode.removeChild(parent);
+                        }
+                    }
+                }
+            });
+            initProductPageVideo();
+        }
     });
+
 
 })();
