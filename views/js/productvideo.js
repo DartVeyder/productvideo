@@ -281,28 +281,104 @@
 
         var settings = getSettings();
         var videoUrl = productPageVideo.videoUrl;
+        var videoAdded = false;
 
         // --- Спроба 1: Класична тема / Leo Theme — .images-container .product-cover ---
         var coverContainer = document.querySelector('.images-container .product-cover');
-
         if (coverContainer) {
             insertVideoInCover(coverContainer, videoUrl, settings);
-            return;
+            videoAdded = true;
+        }
+
+        // --- Спроба 1.5: Slick Slider (mobile list-images-mobile) ---
+        var slickSlider = document.querySelector('.list-images-mobile');
+        if (slickSlider) {
+            insertVideoInSlick(slickSlider, videoUrl, settings);
+            videoAdded = true;
         }
 
         // --- Спроба 2: Swiper-based slider ---
         var swiperWrapper = document.querySelector('.product-images .swiper-wrapper');
-
         if (swiperWrapper) {
             insertVideoAsFirstSlide(swiperWrapper, videoUrl, settings);
-            return;
+            videoAdded = true;
         }
 
         // --- Спроба 3: Generic ---
-        var productImages = document.querySelector('.product-images, .product-cover-thumbnails, #product-images-large');
+        if (!videoAdded) {
+            var productImages = document.querySelector('.product-images, .product-cover-thumbnails, #product-images-large, .images-container');
+            if (productImages) {
+                insertVideoBeforeFirst(productImages, videoUrl, settings);
+            }
+        }
+    }
 
-        if (productImages) {
-            insertVideoBeforeFirst(productImages, videoUrl, settings);
+    /**
+     * Вставляє відео як перший слайд у Slick Slider
+     */
+    function insertVideoInSlick(sliderEl, videoUrl, settings) {
+        var slide = document.createElement('div');
+
+        var wrapper = document.createElement('div');
+        wrapper.className = 'product-page-video-wrapper text-center';
+        wrapper.style.position = 'relative';
+
+        var video = document.createElement('video');
+        video.className = 'product-video';
+        video.src = videoUrl;
+        video.setAttribute('muted', '');
+        video.setAttribute('loop', '');
+        video.setAttribute('playsinline', '');
+        video.muted = true;
+        video.style.maxWidth = '100%';
+
+        if (settings.autoplay === 1) {
+            video.setAttribute('autoplay', '');
+        }
+
+        if (settings.autoplay !== 1) {
+            video.pause();
+            wrapper.classList.add('is-paused');
+
+            var playIcon = document.createElement('div');
+            playIcon.className = 'product-video-play-icon';
+            wrapper.appendChild(playIcon);
+
+            wrapper.addEventListener('mouseenter', function () {
+                wrapper.classList.remove('is-paused');
+                video.play().catch(function () { });
+            });
+            wrapper.addEventListener('mouseleave', function () {
+                wrapper.classList.add('is-paused');
+                video.pause();
+            });
+
+            wrapper.addEventListener('click', function (e) {
+                if (video.paused) {
+                    wrapper.classList.remove('is-paused');
+                    video.play().catch(function () { });
+                } else {
+                    wrapper.classList.add('is-paused');
+                    video.pause();
+                }
+            });
+        }
+
+        wrapper.appendChild(video);
+        applyDimensionStyles(wrapper, settings);
+
+        slide.appendChild(wrapper);
+
+        if (window.jQuery && window.jQuery(sliderEl).hasClass('slick-initialized')) {
+            window.jQuery(sliderEl).slick('slickAdd', slide, 0);
+            window.jQuery(sliderEl).slick('slickGoTo', 0, true);
+        } else {
+            var track = sliderEl.querySelector('.slick-track');
+            if (track) {
+                track.insertBefore(slide, track.firstChild);
+            } else {
+                sliderEl.insertBefore(slide, sliderEl.firstChild);
+            }
         }
     }
 
