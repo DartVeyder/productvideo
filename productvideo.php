@@ -23,6 +23,7 @@ class ProductVideo extends Module
     const CONF_ASPECT_HEIGHT  = 'PRODUCTVIDEO_ASPECT_H';
     const CONF_MAX_WIDTH      = 'PRODUCTVIDEO_MAX_WIDTH';
     const CONF_MAX_HEIGHT     = 'PRODUCTVIDEO_MAX_HEIGHT';
+    const CONF_SHOW_VIDEO     = 'PRODUCTVIDEO_SHOW_VIDEO';
 
     /** Директорія для завантажених відео */
     const UPLOAD_DIR = 'uploads';
@@ -74,7 +75,8 @@ class ProductVideo extends Module
             && Configuration::updateValue(self::CONF_ASPECT_WIDTH, 0)
             && Configuration::updateValue(self::CONF_ASPECT_HEIGHT, 0)
             && Configuration::updateValue(self::CONF_MAX_WIDTH, 0)
-            && Configuration::updateValue(self::CONF_MAX_HEIGHT, 0);
+            && Configuration::updateValue(self::CONF_MAX_HEIGHT, 0)
+            && Configuration::updateValue(self::CONF_SHOW_VIDEO, 1);
     }
 
     public function uninstall()
@@ -87,6 +89,7 @@ class ProductVideo extends Module
             && Configuration::deleteByName(self::CONF_ASPECT_HEIGHT)
             && Configuration::deleteByName(self::CONF_MAX_WIDTH)
             && Configuration::deleteByName(self::CONF_MAX_HEIGHT)
+            && Configuration::deleteByName(self::CONF_SHOW_VIDEO)
             && parent::uninstall();
     }
 
@@ -183,6 +186,7 @@ class ProductVideo extends Module
             Configuration::updateValue(self::CONF_ASPECT_HEIGHT, (int) Tools::getValue(self::CONF_ASPECT_HEIGHT));
             Configuration::updateValue(self::CONF_MAX_WIDTH, (int) Tools::getValue(self::CONF_MAX_WIDTH));
             Configuration::updateValue(self::CONF_MAX_HEIGHT, (int) Tools::getValue(self::CONF_MAX_HEIGHT));
+            Configuration::updateValue(self::CONF_SHOW_VIDEO, (int) Tools::getValue(self::CONF_SHOW_VIDEO));
 
             $output .= $this->displayConfirmation($this->l('Налаштування збережено.'));
         }
@@ -190,6 +194,7 @@ class ProductVideo extends Module
         if (Tools::isSubmit('submitProductVideo')) {
             $id_product = (int) Tools::getValue('id_product');
             $video_url = trim(Tools::getValue('video_url'));
+            $active = (int) Tools::getValue('active');
 
             if (!$id_product || !Product::existsInDatabase($id_product, 'product')) {
                 $output .= $this->displayError($this->l('Невірний ID товару або товар не існує.'));
@@ -199,11 +204,11 @@ class ProductVideo extends Module
                     if (empty($video_url)) {
                         Db::getInstance()->delete('product_video', 'id_product = ' . $id_product);
                     } else {
-                        Db::getInstance()->update('product_video', array('video_url' => pSQL($video_url)), 'id_product = ' . $id_product);
+                        Db::getInstance()->update('product_video', array('video_url' => pSQL($video_url), 'active' => $active), 'id_product = ' . $id_product);
                     }
                 } else {
                     if (!empty($video_url)) {
-                        Db::getInstance()->insert('product_video', array('id_product' => $id_product, 'video_url' => pSQL($video_url)));
+                        Db::getInstance()->insert('product_video', array('id_product' => $id_product, 'video_url' => pSQL($video_url), 'active' => $active));
                     }
                 }
                 $output .= $this->displayConfirmation($this->l('Відео товару збережено.'));
@@ -218,8 +223,23 @@ class ProductVideo extends Module
             }
         }
 
+        if (Tools::isSubmit('statusproduct_video')) {
+            $id_product = (int) Tools::getValue('id_product');
+            if ($id_product) {
+                $status = (int) Db::getInstance()->getValue('SELECT `active` FROM `' . _DB_PREFIX_ . 'product_video` WHERE `id_product` = ' . $id_product);
+                Db::getInstance()->update('product_video', array('active' => !$status), 'id_product = ' . $id_product);
+                $output .= $this->displayConfirmation($this->l('Статус відео змінено.'));
+            }
+        }
+
         if (Tools::isSubmit('updateproduct_video') || Tools::isSubmit('addproduct_video')) {
             return $output . $this->renderVideoForm();
+        }
+
+        // Auto-upgrade existing database
+        $columns = Db::getInstance()->executeS('SHOW COLUMNS FROM `' . _DB_PREFIX_ . 'product_video` LIKE "active"');
+        if (empty($columns)) {
+            Db::getInstance()->execute('ALTER TABLE `' . _DB_PREFIX_ . 'product_video` ADD `active` TINYINT(1) UNSIGNED NOT NULL DEFAULT 1');
         }
 
         return $output . $this->renderConfigForm() . $this->renderVideoList();
@@ -237,6 +257,17 @@ class ProductVideo extends Module
                     'icon'  => 'icon-cogs',
                 ),
                 'input' => array(
+                    array(
+                        'type'    => 'switch',
+                        'label'   => $this->l('Показувати відео'),
+                        'name'    => self::CONF_SHOW_VIDEO,
+                        'desc'    => $this->l('Увімкнути — відео відображається. Вимкнути — відео приховано.'),
+                        'is_bool' => true,
+                        'values'  => array(
+                            array('id' => 'show_video_on',  'value' => 1, 'label' => $this->l('Так')),
+                            array('id' => 'show_video_off', 'value' => 0, 'label' => $this->l('Ні')),
+                        ),
+                    ),
                     array(
                         'type'    => 'switch',
                         'label'   => $this->l('Автовідтворення'),
@@ -292,7 +323,13 @@ class ProductVideo extends Module
         $helper->default_form_language = (int) Configuration::get('PS_LANG_DEFAULT');
         $helper->allow_employee_form_lang = true;
 
+        $showVideo = Configuration::get(self::CONF_SHOW_VIDEO);
+        if ($showVideo === false) {
+            $showVideo = 1;
+        }
+
         $helper->fields_value = array(
+            self::CONF_SHOW_VIDEO    => $showVideo,
             self::CONF_AUTOPLAY      => Configuration::get(self::CONF_AUTOPLAY),
             self::CONF_ASPECT_WIDTH  => Configuration::get(self::CONF_ASPECT_WIDTH),
             self::CONF_ASPECT_HEIGHT => Configuration::get(self::CONF_ASPECT_HEIGHT),
@@ -311,7 +348,13 @@ class ProductVideo extends Module
         $aspectW = (int) Configuration::get(self::CONF_ASPECT_WIDTH);
         $aspectH = (int) Configuration::get(self::CONF_ASPECT_HEIGHT);
 
+        $showVideo = Configuration::get(self::CONF_SHOW_VIDEO);
+        if ($showVideo === false) {
+            $showVideo = 1;
+        }
+
         return array(
+            'showVideo'   => (int) $showVideo,
             'autoplay'    => (int) Configuration::get(self::CONF_AUTOPLAY),
             'aspectRatio' => ($aspectW > 0 && $aspectH > 0) ? $aspectW . ' / ' . $aspectH : '',
             'maxWidth'    => (int) Configuration::get(self::CONF_MAX_WIDTH),
@@ -329,7 +372,9 @@ class ProductVideo extends Module
     public function hookDisplayAdminProductsMainStepLeftColumnMiddle($params)
     {
         $idProduct = (int) $params['id_product'];
-        $videoUrl = $this->getVideoUrl($idProduct);
+        $videoData = $this->getVideoData($idProduct);
+        $videoUrl = $videoData ? $videoData['video_url'] : '';
+        $active = $videoData ? (int) $videoData['active'] : 1;
 
         // Визначаємо, чи це завантажений файл
         $isUploadedFile = false;
@@ -351,6 +396,7 @@ class ProductVideo extends Module
 
         $this->context->smarty->assign(array(
             'video_url'          => $videoUrl,
+            'active'             => $active,
             'full_video_url'     => $fullVideoUrl,
             'id_product'         => $idProduct,
             'is_uploaded_file'   => $isUploadedFile,
@@ -379,6 +425,7 @@ class ProductVideo extends Module
 
         // Беремо лише значення з hidden-поля (заповнюється AJAX-завантаженням)
         $videoUrl = trim(Tools::getValue('product_video_current', ''));
+        $active = (int) Tools::getValue('product_video_active', 0);
 
         // --- Збереження в БД ---
         if (empty($videoUrl)) {
@@ -393,11 +440,13 @@ class ProductVideo extends Module
         if ($exists) {
             Db::getInstance()->update('product_video', array(
                 'video_url' => pSQL($videoUrl),
+                'active' => $active,
             ), 'id_product = ' . $idProduct);
         } else {
             Db::getInstance()->insert('product_video', array(
                 'id_product' => $idProduct,
                 'video_url' => pSQL($videoUrl),
+                'active' => $active,
             ));
         }
     }
@@ -444,8 +493,12 @@ class ProductVideo extends Module
      */
     public function hookDisplayHeader()
     {
-        $controllerName = Tools::getValue('controller');
         $settings = $this->getSettings();
+        if (empty($settings['showVideo'])) {
+            return '';
+        }
+
+        $controllerName = Tools::getValue('controller');
 
         // Сторінка каталогу / категорії
         if (in_array($controllerName, array('category', 'search', 'bestsales', 'newproducts', 'pricesdrop', 'manufacturer', 'supplier'))) {
@@ -487,23 +540,33 @@ class ProductVideo extends Module
      * =========================== */
 
     /**
-     * Отримує video_url для конкретного товару
+     * Отримує video_url для конкретного товару (тільки активні)
      */
     private function getVideoUrl($idProduct)
     {
         return Db::getInstance()->getValue(
-            'SELECT video_url FROM `' . _DB_PREFIX_ . 'product_video` WHERE id_product = ' . (int) $idProduct
+            'SELECT video_url FROM `' . _DB_PREFIX_ . 'product_video` WHERE id_product = ' . (int) $idProduct . ' AND active = 1'
+        );
+    }
+
+    /**
+     * Отримує всі дані відео для конкретного товару (для адмінки)
+     */
+    private function getVideoData($idProduct)
+    {
+        return Db::getInstance()->getRow(
+            'SELECT * FROM `' . _DB_PREFIX_ . 'product_video` WHERE id_product = ' . (int) $idProduct
         );
     }
 
     /**
      * Отримує всі video_url у вигляді масиву [id_product => video_url]
-     * Для відносних шляхів автоматично додає базовий URL
+     * Для відносних шляхів автоматично додає базовий URL (тільки активні)
      */
     private function getAllVideos()
     {
         $rows = Db::getInstance()->executeS(
-            'SELECT id_product, video_url FROM `' . _DB_PREFIX_ . 'product_video` WHERE video_url != ""'
+            'SELECT id_product, video_url FROM `' . _DB_PREFIX_ . 'product_video` WHERE video_url != "" AND active = 1'
         );
 
         $baseUrl = $this->context->link->getBaseLink();
@@ -543,6 +606,12 @@ class ProductVideo extends Module
                 'type' => 'text',
                 'search' => false,
             ),
+            'active' => array(
+                'title' => $this->l('Активно'),
+                'type' => 'bool',
+                'active' => 'status',
+                'search' => false,
+            ),
         );
 
         $helper = new HelperList();
@@ -562,7 +631,7 @@ class ProductVideo extends Module
             'desc' => $this->l('Додати нове відео')
         );
 
-        $sql = 'SELECT pv.id_product, pl.name, pv.video_url '
+        $sql = 'SELECT pv.id_product, pl.name, pv.video_url, pv.active '
              . 'FROM `' . _DB_PREFIX_ . 'product_video` pv '
              . 'LEFT JOIN `' . _DB_PREFIX_ . 'product_lang` pl '
              . 'ON (pv.id_product = pl.id_product AND pl.id_lang = ' . (int)$this->context->language->id . ' AND pl.id_shop = ' . (int)$this->context->shop->id . ') '
@@ -580,10 +649,14 @@ class ProductVideo extends Module
     private function renderVideoForm()
     {
         $id_product = (int) Tools::getValue('id_product', 0);
-        $video_url = '';
+        $video_data = array('video_url' => '', 'active' => 1);
         
         if ($id_product) {
-            $video_url = Db::getInstance()->getValue('SELECT video_url FROM `' . _DB_PREFIX_ . 'product_video` WHERE id_product = ' . $id_product);
+            $row = $this->getVideoData($id_product);
+            if ($row) {
+                $video_data['video_url'] = $row['video_url'];
+                $video_data['active']    = $row['active'];
+            }
         }
 
         $fields_form = array(
@@ -606,6 +679,16 @@ class ProductVideo extends Module
                         'name'  => 'video_url',
                         'desc'  => $this->l('URL на відео Youtube/Vimeo/mp4 або відносний шлях до завантаженого файлу (наприклад: modules/productvideo/uploads/video.mp4).'),
                         'required' => true,
+                    ),
+                    array(
+                        'type'    => 'switch',
+                        'label'   => $this->l('Активно'),
+                        'name'    => 'active',
+                        'is_bool' => true,
+                        'values'  => array(
+                            array('id' => 'active_on',  'value' => 1, 'label' => $this->l('Так')),
+                            array('id' => 'active_off', 'value' => 0, 'label' => $this->l('Ні')),
+                        ),
                     ),
                 ),
                 'submit' => array(
@@ -632,7 +715,8 @@ class ProductVideo extends Module
 
         $helper->fields_value = array(
             'id_product' => $id_product ? $id_product : '',
-            'video_url'  => $video_url,
+            'video_url'  => $video_data['video_url'],
+            'active'     => $video_data['active'],
         );
         
         if ($id_product) {

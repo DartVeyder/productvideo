@@ -64,6 +64,14 @@
         </div>
         <small id="product-video-progress-text" style="color:#666;">0%</small>
     </div>
+
+    {* --- Активність відео --- *}
+    <div style="margin-top: 15px;">
+        <label style="font-weight:bold; cursor:pointer;">
+            <input type="checkbox" name="product_video_active" id="product_video_active" value="1" {if isset($active) && $active}checked="checked"{/if} />
+            {l s='Показувати відео для цього товару' mod='productvideo'}
+        </label>
+    </div>
 </div>
 
 {* --- AJAX Upload JS --- *}
