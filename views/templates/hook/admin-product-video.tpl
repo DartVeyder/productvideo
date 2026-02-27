@@ -33,27 +33,6 @@
         </div>
     </div>
 
-    {* --- URL поле --- *}
-    <label class="form-control-label" for="product_video_url">
-        {l s='Video URL (MP4)' mod='productvideo'}
-    </label>
-    <input
-        type="text"
-        id="product_video_url"
-        name="product_video_url"
-        class="form-control"
-        value="{if !$is_uploaded_file}{$video_url|escape:'htmlall':'UTF-8'}{/if}"
-        placeholder="https://example.com/video.mp4"
-    />
-    <small class="form-text text-muted" style="margin-bottom:15px; display:block;">
-        {l s='Вставте пряме посилання на MP4-файл.' mod='productvideo'}
-    </small>
-
-    {* --- Роздільник --- *}
-    <div style="text-align:center; margin:10px 0; color:#999; font-size:13px;">
-        — {l s='або' mod='productvideo'} —
-    </div>
-
     {* --- Завантаження файлу --- *}
     <label class="form-control-label" for="product_video_file">
         {l s='Завантажити відео-файл' mod='productvideo'}
@@ -142,9 +121,6 @@
                     statusEl.innerHTML = '<span style="color:#72c279;">✓ ' + resp.filename + '</span>';
                     currentInfo.style.display = 'block';
                     currentName.innerHTML = '<span class="label label-success" style="font-size:12px;"><i class="icon-file-video-o"></i> ' + resp.filename + '</span>';
-
-                    // Очищаємо URL-поле
-                    document.getElementById('product_video_url').value = '';
                 } else {
                     statusEl.innerHTML = '<span style="color:#d9534f;">✗ ' + resp.message + '</span>';
                 }

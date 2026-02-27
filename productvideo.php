@@ -335,20 +335,8 @@ class ProductVideo extends Module
             return;
         }
 
-        // Пріоритет: 1) URL з текстового поля, 2) hidden поле (поточне значення / AJAX-upload)
-        $newUrl = trim(Tools::getValue('product_video_url', ''));
-        $currentUrl = trim(Tools::getValue('product_video_current', ''));
-
-        // Визначаємо фінальний URL
-        $videoUrl = '';
-        if (!empty($newUrl)) {
-            // Користувач ввів новий URL — видаляємо старий файл
-            $this->deleteUploadedVideo($idProduct);
-            $videoUrl = $newUrl;
-        } elseif (!empty($currentUrl)) {
-            // Зберігаємо поточне значення (URL або шлях від AJAX-upload)
-            $videoUrl = $currentUrl;
-        }
+        // Беремо лише значення з hidden-поля (заповнюється AJAX-завантаженням)
+        $videoUrl = trim(Tools::getValue('product_video_current', ''));
 
         // --- Збереження в БД ---
         if (empty($videoUrl)) {
