@@ -187,7 +187,42 @@ class ProductVideo extends Module
             $output .= $this->displayConfirmation($this->l('Налаштування збережено.'));
         }
 
-        return $output . $this->renderConfigForm();
+        if (Tools::isSubmit('submitProductVideo')) {
+            $id_product = (int) Tools::getValue('id_product');
+            $video_url = trim(Tools::getValue('video_url'));
+
+            if (!$id_product || !Product::existsInDatabase($id_product, 'product')) {
+                $output .= $this->displayError($this->l('Невірний ID товару або товар не існує.'));
+            } else {
+                $exists = Db::getInstance()->getValue('SELECT id_product FROM `' . _DB_PREFIX_ . 'product_video` WHERE id_product = ' . $id_product);
+                if ($exists) {
+                    if (empty($video_url)) {
+                        Db::getInstance()->delete('product_video', 'id_product = ' . $id_product);
+                    } else {
+                        Db::getInstance()->update('product_video', array('video_url' => pSQL($video_url)), 'id_product = ' . $id_product);
+                    }
+                } else {
+                    if (!empty($video_url)) {
+                        Db::getInstance()->insert('product_video', array('id_product' => $id_product, 'video_url' => pSQL($video_url)));
+                    }
+                }
+                $output .= $this->displayConfirmation($this->l('Відео товару збережено.'));
+            }
+        }
+
+        if (Tools::isSubmit('deleteproduct_video')) {
+            $id_product = (int) Tools::getValue('id_product');
+            if ($id_product) {
+                Db::getInstance()->delete('product_video', 'id_product = ' . $id_product);
+                $output .= $this->displayConfirmation($this->l('Відео товару успішно видалено.'));
+            }
+        }
+
+        if (Tools::isSubmit('updateproduct_video') || Tools::isSubmit('addproduct_video')) {
+            return $output . $this->renderVideoForm();
+        }
+
+        return $output . $this->renderConfigForm() . $this->renderVideoList();
     }
 
     /**
@@ -488,5 +523,122 @@ class ProductVideo extends Module
         }
 
         return $result;
+    }
+
+    private function renderVideoList()
+    {
+        $fields_list = array(
+            'id_product' => array(
+                'title' => $this->l('ID Товару'),
+                'type' => 'text',
+                'search' => false,
+            ),
+            'name' => array(
+                'title' => $this->l('Назва Товару'),
+                'type' => 'text',
+                'search' => false,
+            ),
+            'video_url' => array(
+                'title' => $this->l('Відео URL'),
+                'type' => 'text',
+                'search' => false,
+            ),
+        );
+
+        $helper = new HelperList();
+        $helper->shopLinkType = '';
+        $helper->simple_header = false;
+        $helper->identifier = 'id_product';
+        $helper->actions = array('edit', 'delete');
+        $helper->show_toolbar = true;
+        
+        $helper->title = $this->l('Товари з відео');
+        $helper->table = 'product_video';
+        $helper->token = Tools::getAdminTokenLite('AdminModules');
+        $helper->currentIndex = AdminController::$currentIndex . '&configure=' . $this->name;
+        
+        $helper->toolbar_btn['new'] = array(
+            'href' => $helper->currentIndex . '&addproduct_video&token=' . $helper->token,
+            'desc' => $this->l('Додати нове відео')
+        );
+
+        $sql = 'SELECT pv.id_product, pl.name, pv.video_url '
+             . 'FROM `' . _DB_PREFIX_ . 'product_video` pv '
+             . 'LEFT JOIN `' . _DB_PREFIX_ . 'product_lang` pl '
+             . 'ON (pv.id_product = pl.id_product AND pl.id_lang = ' . (int)$this->context->language->id . ' AND pl.id_shop = ' . (int)$this->context->shop->id . ') '
+             . 'ORDER BY pv.id_product DESC';
+             
+        $list = Db::getInstance()->executeS($sql);
+
+        if (!$list) {
+            $list = array();
+        }
+
+        return $helper->generateList($list, $fields_list);
+    }
+
+    private function renderVideoForm()
+    {
+        $id_product = (int) Tools::getValue('id_product', 0);
+        $video_url = '';
+        
+        if ($id_product) {
+            $video_url = Db::getInstance()->getValue('SELECT video_url FROM `' . _DB_PREFIX_ . 'product_video` WHERE id_product = ' . $id_product);
+        }
+
+        $fields_form = array(
+            'form' => array(
+                'legend' => array(
+                    'title' => $id_product ? $this->l('Редагувати відео товару') : $this->l('Додати відео товару'),
+                    'icon'  => 'icon-video-camera',
+                ),
+                'input' => array(
+                    array(
+                        'type'  => 'text',
+                        'label' => $this->l('ID Товару'),
+                        'name'  => 'id_product',
+                        'required' => true,
+                        'desc'  => $this->l('Введіть ID товару, до якого хочете прив\'язати відео.'),
+                    ),
+                    array(
+                        'type'  => 'text',
+                        'label' => $this->l('Відео URL або Файл'),
+                        'name'  => 'video_url',
+                        'desc'  => $this->l('URL на відео Youtube/Vimeo/mp4 або відносний шлях до завантаженого файлу (наприклад: modules/productvideo/uploads/video.mp4).'),
+                        'required' => true,
+                    ),
+                ),
+                'submit' => array(
+                    'title' => $this->l('Зберегти'),
+                ),
+                'buttons' => array(
+                    array(
+                        'href' => AdminController::$currentIndex . '&configure=' . $this->name . '&token=' . Tools::getAdminTokenLite('AdminModules'),
+                        'title' => $this->l('Назад до списку'),
+                        'icon' => 'process-icon-back'
+                    )
+                )
+            ),
+        );
+
+        $helper = new HelperForm();
+        $helper->module = $this;
+        $helper->name_controller = $this->name;
+        $helper->token = Tools::getAdminTokenLite('AdminModules');
+        $helper->currentIndex = AdminController::$currentIndex . '&configure=' . $this->name;
+        $helper->submit_action = 'submitProductVideo';
+        $helper->default_form_language = (int) Configuration::get('PS_LANG_DEFAULT');
+        $helper->allow_employee_form_lang = true;
+
+        $helper->fields_value = array(
+            'id_product' => $id_product ? $id_product : '',
+            'video_url'  => $video_url,
+        );
+        
+        if ($id_product) {
+             $fields_form['form']['input'][0]['readonly'] = true;
+        }
+
+        return $helper->generateForm(array($fields_form));
     }
 }
