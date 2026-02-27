@@ -305,11 +305,18 @@ class ProductVideo extends Module
             $uploadedFileName = basename($videoUrl);
         }
 
+        // Створюємо повний URL для попереднього перегляду
+        $fullVideoUrl = $videoUrl;
+        if (!empty($fullVideoUrl) && strpos($fullVideoUrl, 'http') !== 0) {
+            $fullVideoUrl = $this->context->link->getBaseLink() . $fullVideoUrl;
+        }
+
         // URL для AJAX-завантаження
         $uploadUrl = $this->context->link->getAdminLink('AdminProductVideoUpload');
 
         $this->context->smarty->assign(array(
             'video_url'          => $videoUrl,
+            'full_video_url'     => $fullVideoUrl,
             'id_product'         => $idProduct,
             'is_uploaded_file'   => $isUploadedFile,
             'uploaded_file_name' => $uploadedFileName,

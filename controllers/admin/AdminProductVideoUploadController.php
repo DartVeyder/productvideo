@@ -65,12 +65,14 @@ class AdminProductVideoUploadController extends ModuleAdminController
         }
 
         $relativePath = 'modules/productvideo/uploads/' . $newFileName;
+        $fullPath = $this->context->link->getBaseLink() . $relativePath;
 
         die(json_encode(array(
-            'success'  => true,
-            'message'  => 'OK',
-            'path'     => $relativePath,
-            'filename' => $newFileName,
+            'success'   => true,
+            'message'   => 'OK',
+            'path'      => $relativePath,
+            'full_path' => $fullPath,
+            'filename'  => $newFileName,
         )));
     }
 }

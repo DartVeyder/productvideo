@@ -31,6 +31,11 @@
                 {l s='Видалити відео' mod='productvideo'}
             </label>
         </div>
+
+        {* PREVIEW *}
+        <div id="product-video-preview-container" style="max-width: 300px; margin-top: 10px; margin-bottom: 15px; {if !$full_video_url}display:none;{/if}">
+            <video id="product-video-preview" src="{$full_video_url|escape:'htmlall':'UTF-8'}" controls style="width: 100%; height: auto; border: 1px solid #ccc; border-radius: 4px; background: #000;"></video>
+        </div>
     </div>
 
     {* --- Завантаження файлу --- *}
@@ -121,6 +126,14 @@
                     statusEl.innerHTML = '<span style="color:#72c279;">✓ ' + resp.filename + '</span>';
                     currentInfo.style.display = 'block';
                     currentName.innerHTML = '<span class="label label-success" style="font-size:12px;"><i class="icon-file-video-o"></i> ' + resp.filename + '</span>';
+
+                    // Update Preview
+                    var previewContainer = document.getElementById('product-video-preview-container');
+                    var previewVideo = document.getElementById('product-video-preview');
+                    if (previewContainer && previewVideo) {
+                        previewVideo.src = resp.full_path || resp.path;
+                        previewContainer.style.display = 'block';
+                    }
                 } else {
                     statusEl.innerHTML = '<span style="color:#d9534f;">✗ ' + resp.message + '</span>';
                 }
