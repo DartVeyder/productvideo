@@ -424,6 +424,94 @@
             coverImg.style.display = 'none';
         }
 
+        // --- Додаємо мініатюру відео ---
+        var thumbGallery = document.querySelector('#thumb-gallery');
+        if (!thumbGallery) {
+            thumbGallery = document.querySelector('.product-images');
+        }
+
+        if (thumbGallery) {
+            var isSlick = window.jQuery && window.jQuery(thumbGallery).hasClass('slick-initialized');
+
+            if (!thumbGallery.querySelector('.product-video-thumbnail-container')) {
+                var thumbInnerHtml = '<a href="javascript:void(0)" style="display:block; position:relative; overflow:hidden;">' +
+                    '<video class="thumb product-video-thumb" src="' + videoUrl + '#t=0.1" preload="metadata" muted playsinline style="width:100%; height:auto; object-fit:cover; pointer-events:none;"></video>' +
+                    '<div class="product-video-thumb-play" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); width:30px; height:30px; background:rgba(0,0,0,0.6); border-radius:50%; display:flex; align-items:center; justify-content:center; pointer-events:none;">' +
+                    '<div style="width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-left: 8px solid white; margin-left: 3px;"></div>' +
+                    '</div></a>';
+
+                if (isSlick) {
+                    var slideHtml = '<div class="thumb-container product-video-thumbnail-container">' + thumbInnerHtml + '</div>';
+                    window.jQuery(thumbGallery).slick('slickAdd', slideHtml, 0, true);
+                    window.jQuery(thumbGallery).slick('slickGoTo', 0, true);
+                } else {
+                    var videoThumbDiv = document.createElement('div');
+                    videoThumbDiv.className = 'thumb-container product-video-thumbnail-container';
+                    videoThumbDiv.innerHTML = thumbInnerHtml;
+                    var track = thumbGallery.querySelector('.slick-track') || thumbGallery;
+                    var list = track.querySelector('ul') || track;
+                    if (list.tagName === 'UL') {
+                        var li = document.createElement('li');
+                        li.className = 'thumb-container product-video-thumbnail-container';
+                        li.innerHTML = thumbInnerHtml;
+                        list.insertBefore(li, list.firstChild);
+                    } else {
+                        list.insertBefore(videoThumbDiv, list.firstChild);
+                    }
+                }
+
+                if (!window.videoThumbEventsAdded) {
+                    window.videoThumbEventsAdded = true;
+                    if (window.jQuery) {
+                        window.jQuery(document).on('click', '#thumb-gallery .thumb-container, .product-images .thumb-container, .product-images li, .product-thumb-images .slick-slide', function () {
+                            var $this = window.jQuery(this);
+                            var isVideo = $this.hasClass('product-video-thumbnail-container') || $this.find('.product-video-thumbnail-container').length > 0;
+
+                            var $cover = window.jQuery('.images-container .product-cover');
+                            var $videoWrapper = $cover.find('.product-page-video-wrapper');
+                            var $img = $cover.find('img:not(.thumb)');
+                            var vid = $videoWrapper.find('video')[0];
+
+                            if (isVideo) {
+                                $videoWrapper.show();
+                                $img.hide();
+                                if (vid && settings.autoplay === 1) vid.play();
+                            } else {
+                                $videoWrapper.hide();
+                                $img.show();
+                                if (vid) vid.pause();
+                            }
+                        });
+                    } else {
+                        document.addEventListener('click', function (e) {
+                            var target = e.target.closest('#thumb-gallery .thumb-container, .product-images .thumb-container, .product-images li, .product-thumb-images .slick-slide');
+                            if (target) {
+                                var isVideo = target.classList.contains('product-video-thumbnail-container') || target.querySelector('.product-video-thumbnail-container');
+                                var cover = document.querySelector('.images-container .product-cover');
+                                if (!cover) return;
+                                var videoWrapper = cover.querySelector('.product-page-video-wrapper');
+                                var img = cover.querySelector('img:not(.thumb)');
+                                var vid = videoWrapper ? videoWrapper.querySelector('video') : null;
+
+                                if (videoWrapper && img) {
+                                    if (isVideo) {
+                                        videoWrapper.style.display = 'block';
+                                        img.style.display = 'none';
+                                        if (vid && settings.autoplay === 1) vid.play().catch(function () { });
+                                    } else {
+                                        videoWrapper.style.display = 'none';
+                                        img.style.display = 'block';
+                                        if (vid) vid.pause();
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
+            }
+        }
+        // ---------------------------------
+
         // Блокуємо zoom → fullscreen
         wrapper.addEventListener('click', function (e) {
             e.stopPropagation();
@@ -571,6 +659,26 @@
                 slideIndicesToRemove.forEach(function (idx) {
                     $slider.slick('slickRemove', idx);
                 });
+            }
+
+            // Також видаляємо мініатюру відео (якщо вона є в #thumb-gallery)
+            var thumbGallery = document.querySelector('#thumb-gallery');
+            if (!thumbGallery) thumbGallery = document.querySelector('.product-images');
+            if (window.jQuery && thumbGallery && window.jQuery(thumbGallery).hasClass('slick-initialized')) {
+                var $t = window.jQuery(thumbGallery);
+                var idxToRemove = -1;
+                $t.find('.slick-slide').each(function (index, slide) {
+                    if (window.jQuery(slide).find('.product-video-thumbnail-container').length > 0 || window.jQuery(slide).hasClass('product-video-thumbnail-container')) {
+                        var dataIdx = window.jQuery(slide).attr('data-slick-index');
+                        if (dataIdx !== undefined) idxToRemove = parseInt(dataIdx);
+                    }
+                });
+                if (idxToRemove !== -1) {
+                    $t.slick('slickRemove', idxToRemove);
+                }
+            } else if (thumbGallery) {
+                var vth = thumbGallery.querySelector('.product-video-thumbnail-container');
+                if (vth && vth.parentNode) vth.parentNode.removeChild(vth);
             }
 
             var existingVideos = document.querySelectorAll('.product-page-video-wrapper');
