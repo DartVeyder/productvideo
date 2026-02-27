@@ -1,0 +1,87 @@
+/* ========================================
+ *  Product Video Module — Styles
+ *  productvideo v1.0.0
+ * ======================================== */
+
+/* --- Обгортка відео у картці товару (каталог) --- */
+.product-video-wrapper {
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+}
+
+/* Прозорий overlay-лінк для навігації на товар */
+.product-video-link-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+    cursor: pointer;
+}
+
+.product-video-wrapper .product-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* --- Обгортка відео на сторінці товару --- */
+.product-page-video-wrapper {
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    background: #000;
+    border-radius: 4px;
+}
+
+.product-page-video-wrapper .product-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* --- Іконка відтворення (декоративна) --- */
+.product-video-play-icon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 48px;
+    height: 48px;
+    background: rgba(0, 0, 0, 0.45);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.product-video-play-icon::after {
+    content: '';
+    display: block;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 8px 0 8px 14px;
+    border-color: transparent transparent transparent #fff;
+    margin-left: 3px;
+}
+
+/* Показуємо іконку, коли відео на паузі */
+.product-video-wrapper.is-paused .product-video-play-icon {
+    opacity: 1;
+}
+
+/* --- Адаптивність --- */
+@media (max-width: 768px) {
+    .product-page-video-wrapper {
+        border-radius: 0;
+    }
+}

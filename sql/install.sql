@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS `PREFIX_product_video` (
+    `id_product` INT(10) UNSIGNED NOT NULL,
+    `video_url` VARCHAR(512) NOT NULL DEFAULT '',
+    PRIMARY KEY (`id_product`)
+) ENGINE = ENGINE_TYPE DEFAULT CHARSET = utf8mb4;
