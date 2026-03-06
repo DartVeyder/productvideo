@@ -608,12 +608,182 @@
     }
 
     /* ===================================
+     *  3. Зум лупою (Magnifying Glass)
+     * =================================== */
+
+    function initHoverZoom() {
+        if (window.hoverZoomInitialized) return;
+        window.hoverZoomInitialized = true;
+
+        var zoomSelector = '.zoom_product, #zoom_product';
+        var zoomFactor = 4; // у скільки разів збільшувати (можна міняти)
+
+        // Створюємо елемент лупи один раз і додаємо в body
+        var magnifier = document.createElement('div');
+        magnifier.id = 'product-magnifier-lens';
+        Object.assign(magnifier.style, {
+            position: 'absolute',
+            width: '400px',
+            height: '400px',
+            borderRadius: '0', // квадратна з заокругленнями, збільште до 50% для круглої
+            boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
+            border: '2px solid #fff',
+            backgroundColor: '#fff',
+            backgroundRepeat: 'no-repeat',
+            pointerEvents: 'none', // Буде змінено на auto, коли ми підключаємо скрол
+            display: 'none',
+            zIndex: '9999',
+            opacity: '0',
+            transition: 'opacity 0.2s',
+            boxSizing: 'border-box'
+        });
+        document.body.appendChild(magnifier);
+
+        var currentImage = null;
+
+        document.addEventListener('mouseover', function (e) {
+            var item = e.target.closest(zoomSelector);
+            if (!item) return;
+
+            // Шукаємо зображення всередині або якщо сам елемент - картинка
+            currentImage = item.tagName === 'IMG' ? item : item.querySelector('img');
+
+            if (!currentImage || !currentImage.src) {
+                currentImage = null;
+                return;
+            }
+
+            // Налаштовуємо лупу
+            magnifier.style.backgroundImage = 'url("' + currentImage.src + '")';
+            magnifier.style.display = 'block';
+            magnifier.style.pointerEvents = 'auto'; // Вмикаємо pointer-events, щоб ловити скрол
+
+            // Даємо браузеру кадр, щоб відмалювати display:block, потім міняємо opacity для плавності
+            requestAnimationFrame(function () {
+                magnifier.style.opacity = '1';
+                item.style.cursor = 'none'; // Ховаємо стандартний курсор
+            });
+        });
+
+        function updateMagnifierPosition(e) {
+            if (!currentImage) return;
+
+            var rect = currentImage.getBoundingClientRect();
+
+            // Координати миші відносно картинки
+            var x = e.clientX - rect.left;
+            var y = e.clientY - rect.top;
+
+            // Перевіряємо, чи курсор всередині картинки
+            if (x < 0 || y < 0 || x > rect.width || y > rect.height) {
+                hideMagnifier();
+                return;
+            }
+
+            // Задаємо позицію лупи (центруємо по курсору)
+            var lensWidth = magnifier.offsetWidth;
+            var lensHeight = magnifier.offsetHeight;
+
+            magnifier.style.left = (e.pageX - lensWidth / 2) + 'px';
+            magnifier.style.top = (e.pageY - lensHeight / 2) + 'px';
+
+            // Налаштовуємо розмір фону в лупі відповідно до масштабу (zoomFactor)
+            var bgWidth = rect.width * zoomFactor;
+            var bgHeight = rect.height * zoomFactor;
+            magnifier.style.backgroundSize = bgWidth + 'px ' + bgHeight + 'px';
+
+            // Розраховуємо позицію фону так, щоб показувати місце під курсором
+            var bgX = -(x * zoomFactor - lensWidth / 2);
+            var bgY = -(y * zoomFactor - lensHeight / 2);
+
+            magnifier.style.backgroundPosition = bgX + 'px ' + bgY + 'px';
+        }
+
+        document.addEventListener('mousemove', function (e) {
+            if (!currentImage) return;
+
+            var item = e.target.closest(zoomSelector) || e.target === magnifier;
+
+            // Якщо миша вийшла за межі контейнера зуму або лупи
+            if (!item) {
+                hideMagnifier();
+                return;
+            }
+
+            updateMagnifierPosition(e);
+        });
+
+        // Додаємо підтримку скролу для зміни зуму
+        document.addEventListener('wheel', function (e) {
+            if (!currentImage || magnifier.style.opacity === '0') return;
+
+            // Перевіряємо, чи ми знаходимося над зумованим об'єктом або самою лупою
+            var item = e.target.closest(zoomSelector) || e.target === magnifier;
+            if (item) {
+                e.preventDefault(); // Забороняємо прокрутку сторінки
+
+                if (e.deltaY < 0) {
+                    // Скрол вгору - наближаємо
+                    zoomFactor += 0.25;
+                    if (zoomFactor > 5) zoomFactor = 5; // Максимальний зум
+                } else {
+                    // Скрол вниз - віддаляємо
+                    zoomFactor -= 0.25;
+                    if (zoomFactor < 1) zoomFactor = 1; // Мінімальний зум
+                }
+
+                // Якщо ми над лупою (коли pointer-events: auto), нам потрібно 
+                // симулювати mousemove, щоб оновити фон, але mousemove і так тригериться
+                updateMagnifierPosition(e);
+            }
+        }, { passive: false });
+
+        document.addEventListener('mouseout', function (e) {
+            // Перевіряємо, чи ми переходимо на лупу 
+            if (e.relatedTarget === magnifier) return;
+
+            var item = e.target.closest(zoomSelector);
+            if (!item && e.target !== magnifier) return;
+
+            var sourceItem = e.target === magnifier ? currentImage.closest(zoomSelector) : item;
+
+            // Ховаємо лупу, тільки якщо миша дійсно покинула контейнер і це не лупа
+            if (sourceItem && !sourceItem.contains(e.relatedTarget) && e.relatedTarget !== magnifier) {
+                hideMagnifier();
+                if (sourceItem) sourceItem.style.cursor = '';
+            }
+        });
+
+        magnifier.addEventListener('mouseout', function (e) {
+            if (currentImage) {
+                var sourceItem = currentImage.closest(zoomSelector);
+                if (sourceItem && !sourceItem.contains(e.relatedTarget)) {
+                    hideMagnifier();
+                    sourceItem.style.cursor = '';
+                }
+            }
+        });
+
+        function hideMagnifier() {
+            magnifier.style.opacity = '0';
+            magnifier.style.pointerEvents = 'none'; // Вимикаємо pointer-events, коли ховаємо
+            currentImage = null;
+            setTimeout(function () {
+                if (!currentImage) {
+                    magnifier.style.display = 'none';
+                }
+            }, 200);
+        }
+    }
+
+    /* ===================================
      *  Ініціалізація
      * =================================== */
 
     document.addEventListener('DOMContentLoaded', function () {
         initCatalogVideos();
         initProductPageVideo();
+        initHoverZoom();
 
         // 1. Стандартний метод Prestashop 1.7+ (спрацьовує при зміні атрибутів)
         if (typeof prestashop !== 'undefined') {
@@ -696,6 +866,7 @@
                 }
             });
             initProductPageVideo();
+            initHoverZoom();
         }
     });
 
