@@ -98,6 +98,11 @@
         var miniatures = document.querySelectorAll('.js-product-miniature, .product-miniature');
 
         miniatures.forEach(function (card) {
+            // Якщо для цього товару відео вже ініціалізовано, пропускаємо
+            if (card.querySelector('.product-video-wrapper')) {
+                return;
+            }
+
             var productId = card.getAttribute('data-id-product');
 
             if (!productId || !productVideos[productId]) {
@@ -790,6 +795,10 @@
             prestashop.on('updatedProduct', function () {
                 reinitVideo();
             });
+            // Стандартна подія при завантаженні нових товарів (напр., пагінації, фільтрації)
+            prestashop.on('updateProductList', function () {
+                setTimeout(initCatalogVideos, 200);
+            });
         }
 
         // 2. Fallback для кастомних тем (наприклад, Leo Theme), де updatedProduct може не працювати
@@ -799,12 +808,21 @@
                 if (settings && settings.url && (settings.url.indexOf('Controller=product') > -1 || settings.url.indexOf('controller=product') > -1 || settings.url.indexOf('refresh') > -1)) {
                     // Даємо трохи часу для застосування змін у DOM
                     setTimeout(reinitVideo, 150);
+                } else {
+                    // Інші ajax-запити (напр. фільтрація чи Load More) — пробуємо викликати initCatalogVideos
+                    setTimeout(initCatalogVideos, 200);
                 }
             });
 
             // 3. Прямий клік по кнопках кольору чи розміру (як додаткова підстраховка)
             window.jQuery(document).on('click', '.product-variants-item input, .product-variants-item select, .input-color', function () {
                 setTimeout(reinitVideo, 600); // Чекаємо, поки пройде ajax-запит
+            });
+
+            // 4. Прямий клік або завантаження по кнопці Load More (додатково для каталогу)
+            window.jQuery(document).on('click', '.loadMore', function () {
+                var checkInterval = setInterval(initCatalogVideos, 500);
+                setTimeout(function () { clearInterval(checkInterval); }, 5000);
             });
         }
 
